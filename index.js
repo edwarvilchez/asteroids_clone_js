@@ -16,12 +16,8 @@ class Player {
         ctx.translate(this.position.x, this.position.y);
         ctx.rotate(this.rotation);
         ctx.translate(-this.position.x, -this.position.y);
-        ctx.beginPath();
-        ctx.arc(this.position.x, this.position.y, 5, 0, Math.PI * 2, false);
-        ctx.fillStyle = 'red';
-        ctx.fill();
-        ctx.closePath();
 
+        // Dibujar la nave del jugador (triángulo)
         ctx.beginPath();
         ctx.moveTo(this.position.x + 30, this.position.y);
         ctx.lineTo(this.position.x - 10, this.position.y - 10);
@@ -30,6 +26,14 @@ class Player {
 
         ctx.strokeStyle = 'white';
         ctx.stroke();
+
+        // Dibujar el centro de la nave (círculo rojo)
+        ctx.beginPath();
+        ctx.arc(this.position.x, this.position.y, 5, 0, Math.PI * 2, false);
+        ctx.fillStyle = 'red';
+        ctx.fill();
+        ctx.closePath();
+
         ctx.restore();
     }
 
@@ -37,6 +41,18 @@ class Player {
         this.draw();
         this.position.x += this.velocity.x;
         this.position.y += this.velocity.y;
+    }
+
+    getVertices() {
+        // Calcula los vértices del triángulo rotado
+        const cos = Math.cos(this.rotation);
+        const sin = Math.sin(this.rotation);
+
+        return [
+            { x: this.position.x + cos * 30, y: this.position.y + sin * 30 },
+            { x: this.position.x - cos * 10 - sin * 10, y: this.position.y - sin * 10 + cos * 10 },
+            { x: this.position.x - cos * 10 + sin * 10, y: this.position.y - sin * 10 - cos * 10 }
+        ];
     }
 }
 
@@ -94,7 +110,7 @@ const keys = {
     a: { pressed: false },
     d: { pressed: false },
     s: { pressed: false }
-}
+};
 
 const SPEED = 3;
 const ROTATIONAL_SPEED = 0.05;
@@ -103,32 +119,32 @@ const PROJECTILE_SPEED = 3;
 const projectiles = [];
 const asteroids = [];
 
-window.setInterval(() => {
-    const index = Math.floor(Math.random() * 4);
-    let x = 0, y = 0; // Inicializamos x e y
-    let vx, vy = 0;
-    let radius = 50 * Math.random() + 10;
+const intervalId = window.setInterval(() => {
+    const radius = 50 * Math.random() + 10;
+    let x, y;
+    let vx, vy;
 
-    switch (index) {
-        case 0:
+    const side = Math.floor(Math.random() * 4);
+    switch (side) {
+        case 0: // Izquierda
             x = 0 - radius;
             y = Math.random() * canvas.height;
             vx = 1;
             vy = 0;
             break;
-        case 1:
+        case 1: // Abajo
             x = Math.random() * canvas.width;
             y = canvas.height + radius;
             vx = 0;
             vy = -1;
             break;
-        case 2:
+        case 2: // Derecha
             x = canvas.width + radius;
             y = Math.random() * canvas.height;
             vx = -1;
             vy = 0;
             break;
-        case 3:
+        case 3: // Arriba
             x = Math.random() * canvas.width;
             y = 0 - radius;
             vx = 0;
@@ -137,11 +153,10 @@ window.setInterval(() => {
     }
 
     asteroids.push(new Asteroid({
-        position: { x: x, y: y },
+        position: { x, y },
         velocity: { x: vx, y: vy },
-        radius: radius
+        radius
     }));
-
 }, 3000);
 
 function circleCollision(circle1, circle2) {
@@ -149,6 +164,47 @@ function circleCollision(circle1, circle2) {
     const dy = circle2.position.y - circle1.position.y;
     const distance = Math.sqrt(dx * dx + dy * dy);
     return distance <= circle1.radius + circle2.radius;
+}
+
+function circleTriangleCollision(circle, triangle) {
+    for (let i = 0; i < 3; i++) {
+        let start = triangle[i];
+        let end = triangle[(i + 1) % 3];
+
+        let dx = end.x - start.x;
+        let dy = end.y - start.y;
+        let length = Math.sqrt(dx * dx + dy * dy);
+
+        let dot = ((circle.position.x - start.x) * dx + (circle.position.y - start.y) * dy) / Math.pow(length, 2);
+
+        let closestX = start.x + dot * dx;
+        let closestY = start.y + dot * dy;
+
+        if (!isPointOnLineSegment(closestX, closestY, start, end)) {
+            closestX = closestX < start.x ? start.x : end.x;
+            closestY = closestY < start.y ? start.y : end.y;
+        }
+
+        dx = closestX - circle.position.x;
+        dy = closestY - circle.position.y;
+
+        let distance = Math.sqrt(dx * dx + dy * dy);
+
+        if (distance <= circle.radius) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+function isPointOnLineSegment(x, y, start, end) {
+    return (
+        x >= Math.min(start.x, end.x) &&
+        x <= Math.max(start.x, end.x) &&
+        y >= Math.min(start.y, end.y) &&
+        y <= Math.max(start.y, end.y)
+    );
 }
 
 function isOutOfBounds(object, radius) {
@@ -159,28 +215,41 @@ function isOutOfBounds(object, radius) {
 }
 
 function animate() {
-    window.requestAnimationFrame(animate);
+    const animationId = window.requestAnimationFrame(animate);
     ctx.fillStyle = 'black';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     player.update();
 
-    // Eliminar proyectiles fuera de pantalla
-    for (let i = projectiles.length - 1; i >= 0; i--) {
-        const projectile = projectiles[i];
+    projectiles.forEach((projectile, projectileIndex) => {
         projectile.update();
-        if (isOutOfBounds(projectile, projectile.radius)) {
-            projectiles.splice(i, 1);
+
+        // Eliminar proyectiles fuera de pantalla
+        if (
+            projectile.position.x + projectile.radius < 0 ||
+            projectile.position.x - projectile.radius > canvas.width ||
+            projectile.position.y + projectile.radius < 0 ||
+            projectile.position.y - projectile.radius > canvas.height
+        ) {
+            setTimeout(() => {
+                projectiles.splice(projectileIndex, 1);
+            }, 0);
         }
-    }
+    });
 
     // Eliminar asteroides fuera de pantalla y verificar colisiones
     for (let i = asteroids.length - 1; i >= 0; i--) {
         const asteroid = asteroids[i];
         asteroid.update();
 
+        if (circleTriangleCollision(asteroid, player.getVertices())) {
+            console.log("Player destroyed");
+            window.cancelAnimationFrame(animationId);
+            clearInterval(intervalId);
+            return;
+        }
+
         if (isOutOfBounds(asteroid, asteroid.radius)) {
             asteroids.splice(i, 1);
-            continue; // Pasar al siguiente asteroide si este ya fue eliminado
         }
 
         for (let j = projectiles.length - 1; j >= 0; j--) {
@@ -188,7 +257,7 @@ function animate() {
             if (circleCollision(asteroid, projectile)) {
                 asteroids.splice(i, 1);
                 projectiles.splice(j, 1);
-                break; // Salir del bucle de proyectiles si el asteroide fue destruido
+                break;
             }
         }
     }
@@ -197,8 +266,8 @@ function animate() {
         player.velocity.x = Math.cos(player.rotation) * SPEED;
         player.velocity.y = Math.sin(player.rotation) * SPEED;
     } else if (keys.s.pressed) {
-        player.velocity.x = Math.cos(player.rotation) * -SPEED * FRICTION; // Invertir dirección y aplicar fricción
-        player.velocity.y = Math.sin(player.rotation) * -SPEED * FRICTION;
+        player.velocity.x = -Math.cos(player.rotation) * SPEED * FRICTION;
+        player.velocity.y = -Math.sin(player.rotation) * SPEED * FRICTION;
     } else {
         player.velocity.x *= FRICTION;
         player.velocity.y *= FRICTION;
@@ -235,6 +304,7 @@ window.addEventListener('keydown', (event) => {
                     y: Math.sin(player.rotation) * PROJECTILE_SPEED,
                 },
             }));
+            break;
     }
 });
 
