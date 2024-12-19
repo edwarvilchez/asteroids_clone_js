@@ -1,0 +1,26 @@
+body { margin: 0; }
+canvas { display: block; }
+#score {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    color: white;
+    font-size: 20px;
+}
+#level {
+    position: absolute;
+    top: 50px;
+    left: 20px;
+    color: white;
+    font-size: 20px;
+}
+
+#background {
+    position: fixed; /* Para que la imagen se quede fija en la pantalla */
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: -1; /* Para que la imagen quede detrás del canvas */
+    object-fit: cover; /* Para que la imagen cubra toda la pantalla */
+}

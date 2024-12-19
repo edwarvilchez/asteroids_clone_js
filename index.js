@@ -41,30 +41,6 @@ class Player {
         this.draw();
         this.position.x += this.velocity.x;
         this.position.y += this.velocity.y;
-        //limitamos el movimiento del jugador
-        const vertices = this.getVertices();
-        let maxX = -Infinity;
-        let minX = Infinity;
-        let maxY = -Infinity;
-        let minY = Infinity;
-        vertices.forEach(vertex => {
-            if (vertex.x > maxX) maxX = vertex.x;
-            if (vertex.x < minX) minX = vertex.x;
-            if (vertex.y > maxY) maxY = vertex.y;
-            if (vertex.y < minY) minY = vertex.y;
-        });
-        if(maxX > canvas.width) {
-            this.position.x -= maxX - canvas.width;
-        }
-        if(maxY > canvas.height) {
-            this.position.y -= maxY - canvas.height;
-        }
-        if(minX < 0) {
-            this.position.x += -minX;
-        }
-        if(minY < 0) {
-            this.position.y += -minY;
-        }
     }
 
     getVertices() {
