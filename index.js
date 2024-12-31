@@ -1,16 +1,33 @@
+/**
+ * @file Juego de nave espacial simple con HTML5 Canvas.
+ * @author [edwar "eddiemonster" vilchez]
+ */
+
+// Obtiene el elemento canvas y su contexto de dibujo 2D.
 const canvas = document.querySelector('canvas');
 const ctx = canvas.getContext('2d');
 
+// Ajusta el tamaño del canvas al tamaño de la ventana.
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
+// Clase para representar al jugador.
 class Player {
+    /**
+     * Crea una nueva instancia de Player.
+     * @param {Object} options - Opciones de configuración del jugador.
+     * @param {Object} options.position - Posición inicial del jugador.
+     * @param {Object} options.velocity - Velocidad inicial del jugador.
+     */
     constructor({ position, velocity }) {
         this.position = position;
         this.velocity = velocity;
         this.rotation = 0;
     }
 
+    /**
+     * Dibuja al jugador en el canvas.
+     */
     draw() {
         ctx.save();
         ctx.translate(this.position.x, this.position.y);
@@ -37,12 +54,19 @@ class Player {
         ctx.restore();
     }
 
+    /**
+     * Actualiza la posición del jugador.
+     */
     update() {
         this.draw();
         this.position.x += this.velocity.x;
         this.position.y += this.velocity.y;
     }
 
+    /**
+     * Obtiene los vértices del triángulo que representa al jugador.
+     * @returns {Array} Array de objetos con las coordenadas x e y de cada vértice.
+     */
     getVertices() {
         // Calcula los vértices del triángulo rotado
         const cos = Math.cos(this.rotation);
@@ -56,13 +80,24 @@ class Player {
     }
 }
 
+// Clase para representar un asteroide.
 class Asteroid {
+    /**
+     * Crea una nueva instancia de Asteroid.
+     * @param {Object} options - Opciones de configuración del asteroide.
+     * @param {Object} options.position - Posición inicial del asteroide.
+     * @param {Object} options.velocity - Velocidad inicial del asteroide.
+     * @param {number} options.radius - Radio del asteroide.
+     */
     constructor({ position, velocity, radius }) {
         this.position = position;
         this.velocity = velocity;
         this.radius = radius;
     }
 
+    /**
+     * Dibuja el asteroide en el canvas.
+     */
     draw() {
         ctx.beginPath();
         ctx.arc(this.position.x, this.position.y, this.radius, 0, Math.PI * 2, false);
@@ -71,6 +106,9 @@ class Asteroid {
         ctx.stroke();
     }
 
+    /**
+     * Actualiza la posición del asteroide.
+     */
     update() {
         this.draw();
         this.position.x += this.velocity.x;
@@ -78,13 +116,23 @@ class Asteroid {
     }
 }
 
+// Clase para representar un proyectil.
 class Projectile {
+    /**
+     * Crea una nueva instancia de Projectile.
+     * @param {Object} options - Opciones de configuración del proyectil.
+     * @param {Object} options.position - Posición inicial del proyectil.
+     * @param {Object} options.velocity - Velocidad inicial del proyectil.
+     */
     constructor({ position, velocity }) {
         this.position = position;
         this.velocity = velocity;
         this.radius = 5;
     }
 
+    /**
+     * Dibuja el proyectil en el canvas.
+     */
     draw() {
         ctx.beginPath();
         ctx.arc(this.position.x, this.position.y, this.radius, 0, Math.PI * 2, false);
@@ -93,6 +141,9 @@ class Projectile {
         ctx.fill();
     }
 
+    /**
+     * Actualiza la posición del proyectil.
+     */
     update() {
         this.draw();
         this.position.x += this.velocity.x;
@@ -100,11 +151,13 @@ class Projectile {
     }
 }
 
+// Crea una nueva instancia del jugador.
 const player = new Player({
     position: { x: canvas.width / 2, y: canvas.height / 2 },
     velocity: { x: 0, y: 0 },
 });
 
+// Objeto para almacenar las teclas presionadas.
 const keys = {
     w: { pressed: false },
     a: { pressed: false },
@@ -112,6 +165,7 @@ const keys = {
     s: { pressed: false }
 };
 
+// Constantes del juego.
 const SPEED = 3;
 const ROTATIONAL_SPEED = 0.05;
 const FRICTION = 0.97;
@@ -119,6 +173,13 @@ const PROJECTILE_SPEED = 3;
 const projectiles = [];
 const asteroids = [];
 
+// Variables para el contador de puntos, niveles y velocidad
+let puntos = 0;
+let nivel = 1;
+let umbralPuntos = 1000;
+let velocidadAsteroides = 1; // Velocidad inicial de los asteroide
+
+// Crea asteroides a intervalos regulares.
 const intervalId = window.setInterval(() => {
     const radius = 50 * Math.random() + 10;
     let x, y;
@@ -154,11 +215,17 @@ const intervalId = window.setInterval(() => {
 
     asteroids.push(new Asteroid({
         position: { x, y },
-        velocity: { x: vx, y: vy },
+        velocity: { x: vx * velocidadAsteroides, y: vy * velocidadAsteroides }, // Aplicar velocidad
         radius
     }));
 }, 3000);
 
+/**
+ * Detecta colisiones entre dos círculos.
+ * @param {Object} circle1 - Primer círculo.
+ * @param {Object} circle2 - Segundo círculo.
+ * @returns {boolean} True si hay colisión, False en caso contrario.
+ */
 function circleCollision(circle1, circle2) {
     const dx = circle2.position.x - circle1.position.x;
     const dy = circle2.position.y - circle1.position.y;
@@ -166,6 +233,12 @@ function circleCollision(circle1, circle2) {
     return distance <= circle1.radius + circle2.radius;
 }
 
+/**
+ * Detecta colisiones entre un círculo y un triángulo.
+ * @param {Object} circle - Círculo.
+ * @param {Array} triangle - Array de vértices del triángulo.
+ * @returns {boolean} True si hay colisión, False en caso contrario.
+ */
 function circleTriangleCollision(circle, triangle) {
     for (let i = 0; i < 3; i++) {
         let start = triangle[i];
@@ -198,6 +271,14 @@ function circleTriangleCollision(circle, triangle) {
     return false;
 }
 
+/**
+ * Verifica si un punto está en un segmento de línea.
+ * @param {number} x - Coordenada x del punto.
+ * @param {number} y - Coordenada y del punto.
+ * @param {Object} start - Punto inicial del segmento.
+ * @param {Object} end - Punto final del segmento.
+ * @returns {boolean} True si el punto está en el segmento, False en caso contrario.
+ */
 function isPointOnLineSegment(x, y, start, end) {
     return (
         x >= Math.min(start.x, end.x) &&
@@ -207,6 +288,12 @@ function isPointOnLineSegment(x, y, start, end) {
     );
 }
 
+/**
+ * Verifica si un objeto está fuera de los límites del canvas.
+ * @param {Object} object - Objeto a verificar.
+ * @param {number} radius - Radio del objeto.
+ * @returns {boolean} True si el objeto está fuera de los límites, False en caso contrario.
+ */
 function isOutOfBounds(object, radius) {
     return object.position.x + radius < 0 ||
         object.position.x - radius > canvas.width ||
@@ -214,6 +301,9 @@ function isOutOfBounds(object, radius) {
         object.position.y - radius > canvas.height;
 }
 
+/**
+ * Función de animación principal del juego.
+ */
 function animate() {
     const animationId = window.requestAnimationFrame(animate);
     ctx.fillStyle = 'black';
@@ -224,12 +314,7 @@ function animate() {
         projectile.update();
 
         // Eliminar proyectiles fuera de pantalla
-        if (
-            projectile.position.x + projectile.radius < 0 ||
-            projectile.position.x - projectile.radius > canvas.width ||
-            projectile.position.y + projectile.radius < 0 ||
-            projectile.position.y - projectile.radius > canvas.height
-        ) {
+        if (isOutOfBounds(projectile, projectile.radius)) {
             setTimeout(() => {
                 projectiles.splice(projectileIndex, 1);
             }, 0);
@@ -241,11 +326,16 @@ function animate() {
         const asteroid = asteroids[i];
         asteroid.update();
 
-        if (circleTriangleCollision(asteroid, player.getVertices())) {
-            console.log("Player destroyed");
-            window.cancelAnimationFrame(animationId);
-            clearInterval(intervalId);
-            return;
+        try {
+            if (circleTriangleCollision(asteroid, player.getVertices())) {
+                console.log("Player destroyed");
+                window.cancelAnimationFrame(animationId);
+                clearInterval(intervalId);
+                alert("¡Juego terminado!"); // Mostrar una alerta al jugador
+                return;
+            }
+        } catch (error) {
+            console.error("Error en la detección de colisiones:", error);
         }
 
         if (isOutOfBounds(asteroid, asteroid.radius)) {
@@ -277,8 +367,10 @@ function animate() {
     else if (keys.a.pressed) player.rotation -= ROTATIONAL_SPEED;
 }
 
+// Inicia la animación.
 animate();
 
+// Maneja los eventos de teclado.
 window.addEventListener('keydown', (event) => {
     switch (event.code) {
         case 'KeyW':
